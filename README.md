@@ -59,18 +59,23 @@ docker run -it --rm \
   copilot-cli --help
 ```
 
-#### Option C: Use AWS SSO (with mounted credentials)
+#### Option C: Use AWS SSO (Recommended for organizations)
 
 ```bash
 # First, configure SSO on your host
 aws configure sso
 
-# Then mount the entire .aws directory (not read-only for SSO cache)
-docker run -it --rm \
-  -v ~/.aws:/home/copilot-user/.aws \
-  -v "$(pwd)":/workspace \
-  copilot-cli --help
+# Login to SSO
+aws sso login
+
+# Run with your SSO profile (check ~/.aws/config for profile name)
+docker run -it --rm -v ~/.aws:/home/copilot-user/.aws -e AWS_PROFILE=default -v "$PWD":/workspace copilot-cli --help
 ```
+
+**Important for SSO:**
+- Don't use `:ro` (read-only) - SSO needs to write cache files
+- Always pass `-e AWS_PROFILE=your-profile-name`
+- Run `aws sso login` before using the container
 
 ### 3. Set Up Shell Aliases
 
@@ -79,27 +84,32 @@ Add these aliases to your shell configuration file (`~/.bashrc`, `~/.zshrc`, or 
 #### Bash / Zsh
 
 ```bash
-# AWS Copilot CLI alias (using mounted credentials)
-alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v "$(pwd)":/workspace copilot-cli'
+# AWS Copilot CLI alias for SSO users (recommended)
+alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws -e AWS_PROFILE=default -v "$PWD":/workspace copilot-cli'
 
-# Alternative: AWS Copilot CLI alias (using environment variables)
-# alias copilot='docker run -it --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -v "$(pwd)":/workspace copilot-cli'
+# Alternative: For static credentials (no SSO)
+# alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v "$PWD":/workspace copilot-cli'
 ```
+
+**Note:** Replace `default` with your actual AWS profile name from `~/.aws/config`.
 
 #### PowerShell (Windows)
 
 Add to your PowerShell profile (`$PROFILE`):
 
 ```powershell
-# AWS Copilot CLI function (using mounted credentials)
+# AWS Copilot CLI function for SSO users
 function Invoke-Copilot {
     docker run -it --rm `
-        -v "$env:USERPROFILE\.aws:/home/copilot-user/.aws:ro" `
+        -v "$env:USERPROFILE\.aws:/home/copilot-user/.aws" `
+        -e AWS_PROFILE=default `
         -v "${PWD}:/workspace" `
         copilot-cli $args
 }
 Set-Alias -Name copilot -Value Invoke-Copilot
 ```
+
+**Note:** Replace `default` with your actual AWS profile name.
 
 After adding the aliases, reload your shell configuration:
 
