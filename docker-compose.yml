@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  copilot:
+    build: .
+    image: copilot-cli
+    volumes:
+      - copilot-config:/home/node/.config/github-copilot
+      - .:/workspace
+    stdin_open: true
+    tty: true
+
+volumes:
+  copilot-config:
+    name: copilot-config
