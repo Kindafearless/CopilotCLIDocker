@@ -25,9 +25,15 @@ fi
 echo "✓ Docker is available and running"
 echo ""
 
+# Remove old image if it exists (to avoid caching issues)
+if docker image inspect copilot-cli &> /dev/null; then
+    echo "Removing old copilot-cli image..."
+    docker rmi copilot-cli 2>/dev/null || true
+fi
+
 # Build the image
 echo "Building the copilot-cli Docker image..."
-docker build -t copilot-cli .
+docker build --no-cache -t copilot-cli .
 echo ""
 echo "✓ Image built successfully"
 echo ""
@@ -36,10 +42,10 @@ echo ""
 echo "Verifying installation..."
 echo ""
 echo "AWS Copilot CLI version:"
-docker run --rm copilot-cli copilot --version
+docker run --rm copilot-cli --version
 echo ""
 echo "AWS CLI version:"
-docker run --rm copilot-cli aws --version
+docker run --rm --entrypoint aws copilot-cli --version
 echo ""
 
 # Check for AWS credentials
@@ -52,7 +58,7 @@ if [ -d "$HOME/.aws" ] && [ -f "$HOME/.aws/credentials" -o -f "$HOME/.aws/config
     echo "✓ AWS credentials directory found at ~/.aws"
     echo ""
     echo "Testing AWS credentials..."
-    if docker run --rm -v "$HOME/.aws:/home/copilot-user/.aws:ro" copilot-cli aws sts get-caller-identity 2>/dev/null; then
+    if docker run --rm -v "$HOME/.aws:/home/copilot-user/.aws:ro" --entrypoint aws copilot-cli sts get-caller-identity 2>/dev/null; then
         echo ""
         echo "✓ AWS credentials are valid"
     else
@@ -73,7 +79,7 @@ echo "==================================="
 echo ""
 echo "Add the following alias to your ~/.bashrc or ~/.zshrc:"
 echo ""
-echo "alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v \"\$(pwd)\":/workspace copilot-cli copilot'"
+echo "alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v \"\$(pwd)\":/workspace copilot-cli'"
 echo ""
 echo "Then reload your shell: source ~/.bashrc (or ~/.zshrc)"
 echo ""

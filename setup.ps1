@@ -27,9 +27,16 @@ try {
 Write-Host "✓ Docker is available and running" -ForegroundColor Green
 Write-Host ""
 
+# Remove old image if it exists (to avoid caching issues)
+$imageExists = docker image inspect copilot-cli 2>&1
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "Removing old copilot-cli image..." -ForegroundColor Yellow
+    docker rmi copilot-cli 2>&1 | Out-Null
+}
+
 # Build the image
 Write-Host "Building the copilot-cli Docker image..." -ForegroundColor Yellow
-docker build -t copilot-cli .
+docker build --no-cache -t copilot-cli .
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Error: Failed to build Docker image" -ForegroundColor Red
     exit 1
@@ -42,10 +49,10 @@ Write-Host ""
 Write-Host "Verifying installation..." -ForegroundColor Yellow
 Write-Host ""
 Write-Host "AWS Copilot CLI version:" -ForegroundColor Cyan
-docker run --rm copilot-cli copilot --version
+docker run --rm copilot-cli --version
 Write-Host ""
 Write-Host "AWS CLI version:" -ForegroundColor Cyan
-docker run --rm copilot-cli aws --version
+docker run --rm --entrypoint aws copilot-cli --version
 Write-Host ""
 
 # Check for AWS credentials
@@ -59,7 +66,7 @@ if (Test-Path $awsDir) {
     Write-Host "✓ AWS credentials directory found at $awsDir" -ForegroundColor Green
     Write-Host ""
     Write-Host "Testing AWS credentials..." -ForegroundColor Yellow
-    $result = docker run --rm -v "${awsDir}:/home/copilot-user/.aws:ro" copilot-cli aws sts get-caller-identity 2>&1
+    $result = docker run --rm -v "${awsDir}:/home/copilot-user/.aws:ro" --entrypoint aws copilot-cli sts get-caller-identity 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host $result
         Write-Host ""
@@ -87,7 +94,7 @@ function Invoke-Copilot {
     docker run -it --rm ``
         -v "`$env:USERPROFILE\.aws:/home/copilot-user/.aws:ro" ``
         -v "`${PWD}:/workspace" ``
-        copilot-cli copilot `$args
+        copilot-cli `$args
 }
 Set-Alias -Name copilot -Value Invoke-Copilot
 "@ -ForegroundColor White

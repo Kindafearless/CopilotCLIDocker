@@ -33,5 +33,8 @@ USER copilot-user
 # Set working directory
 WORKDIR /workspace
 
+# Set entrypoint to the copilot binary explicitly
+ENTRYPOINT ["/usr/local/bin/copilot"]
+
 # Default command shows help
-CMD ["copilot", "--help"]
+CMD ["--help"]

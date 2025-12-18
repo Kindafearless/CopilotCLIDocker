@@ -45,7 +45,7 @@ If you already have AWS CLI configured on your host:
 docker run -it --rm \
   -v ~/.aws:/home/copilot-user/.aws:ro \
   -v "$(pwd)":/workspace \
-  copilot-cli copilot --help
+  copilot-cli --help
 ```
 
 #### Option B: Pass credentials as environment variables
@@ -56,7 +56,7 @@ docker run -it --rm \
   -e AWS_SECRET_ACCESS_KEY=your_secret_key \
   -e AWS_DEFAULT_REGION=us-east-1 \
   -v "$(pwd)":/workspace \
-  copilot-cli copilot --help
+  copilot-cli --help
 ```
 
 #### Option C: Use AWS SSO (with mounted credentials)
@@ -65,11 +65,11 @@ docker run -it --rm \
 # First, configure SSO on your host
 aws configure sso
 
-# Then mount the entire .aws directory
+# Then mount the entire .aws directory (not read-only for SSO cache)
 docker run -it --rm \
   -v ~/.aws:/home/copilot-user/.aws \
   -v "$(pwd)":/workspace \
-  copilot-cli copilot --help
+  copilot-cli --help
 ```
 
 ### 3. Set Up Shell Aliases
@@ -80,10 +80,10 @@ Add these aliases to your shell configuration file (`~/.bashrc`, `~/.zshrc`, or 
 
 ```bash
 # AWS Copilot CLI alias (using mounted credentials)
-alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v "$(pwd)":/workspace copilot-cli copilot'
+alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v "$(pwd)":/workspace copilot-cli'
 
 # Alternative: AWS Copilot CLI alias (using environment variables)
-# alias copilot='docker run -it --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -v "$(pwd)":/workspace copilot-cli copilot'
+# alias copilot='docker run -it --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -v "$(pwd)":/workspace copilot-cli'
 ```
 
 #### PowerShell (Windows)
@@ -96,7 +96,7 @@ function Invoke-Copilot {
     docker run -it --rm `
         -v "$env:USERPROFILE\.aws:/home/copilot-user/.aws:ro" `
         -v "${PWD}:/workspace" `
-        copilot-cli copilot $args
+        copilot-cli $args
 }
 Set-Alias -Name copilot -Value Invoke-Copilot
 ```
@@ -201,44 +201,34 @@ To update to the latest Copilot CLI version:
 # Remove the old image
 docker rmi copilot-cli
 
-# Rebuild with the latest version
+# Rebuild with the latest version (use --no-cache to ensure fresh download)
 docker build --no-cache -t copilot-cli .
 ```
 
 ### Check Installed Versions
 
 ```bash
-docker run --rm copilot-cli copilot --version
-docker run --rm copilot-cli aws --version
+docker run --rm copilot-cli --version
+```
+
+To check AWS CLI version, override the entrypoint:
+
+```bash
+docker run --rm --entrypoint aws copilot-cli --version
 ```
 
 ## Advanced Configuration
 
 ### Using with Docker Compose
 
-Create a `docker-compose.yml` for easier management:
-
-```yaml
-version: '3.8'
-services:
-  copilot:
-    build: .
-    image: copilot-cli
-    volumes:
-      - ~/.aws:/home/copilot-user/.aws:ro
-      - .:/workspace
-    stdin_open: true
-    tty: true
-```
-
-Then use:
+A `docker-compose.yml` is included for easier management:
 
 ```bash
 # Build
 docker-compose build
 
 # Run
-docker-compose run --rm copilot copilot init
+docker-compose run --rm copilot init
 ```
 
 ### Using with AWS Profiles
@@ -250,16 +240,28 @@ docker run -it --rm \
   -v ~/.aws:/home/copilot-user/.aws:ro \
   -e AWS_PROFILE=my-profile \
   -v "$(pwd)":/workspace \
-  copilot-cli copilot app ls
+  copilot-cli app ls
 ```
 
-Or add to your alias:
+Or add profile-specific aliases:
 
 ```bash
-alias copilot-prod='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -e AWS_PROFILE=production -v "$(pwd)":/workspace copilot-cli copilot'
+alias copilot-prod='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -e AWS_PROFILE=production -v "$(pwd)":/workspace copilot-cli'
 ```
 
 ## Troubleshooting
+
+### "cannot find module" or Node.js errors
+
+This usually means you have an old cached image. Rebuild with:
+
+```bash
+# Remove the old image completely
+docker rmi copilot-cli
+
+# Rebuild from scratch
+docker build --no-cache -t copilot-cli .
+```
 
 ### "Unable to locate credentials" error
 

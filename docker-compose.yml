@@ -11,3 +11,5 @@ services:
     tty: true
     environment:
       - AWS_PROFILE=${AWS_PROFILE:-default}
+    # The entrypoint is already set to /usr/local/bin/copilot in Dockerfile
+    # Just pass arguments directly: docker-compose run --rm copilot init
