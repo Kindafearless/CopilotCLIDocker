@@ -1,29 +1,37 @@
-# Dockerfile for GitHub Copilot CLI
-# Provides a containerized environment for running GitHub Copilot CLI commands
+# Dockerfile for AWS Copilot CLI
+# Provides a containerized environment for running AWS Copilot CLI commands
 
-FROM node:20-slim
+FROM amazonlinux:2023
 
-# Set environment variables
-ENV NODE_ENV=production
-ENV NPM_CONFIG_PREFIX=/home/node/.npm-global
-ENV PATH=$PATH:/home/node/.npm-global/bin
-
-# Install dependencies and GitHub Copilot CLI
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install dependencies
+RUN dnf install -y \
+    curl \
+    unzip \
     git \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && npm install -g @githubnext/github-copilot-cli \
-    && chown -R node:node /home/node
+    tar \
+    gzip \
+    less \
+    groff \
+    && dnf clean all
 
-# Switch to non-root user for security
-USER node
+# Install AWS CLI v2
+RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip" \
+    && unzip awscliv2.zip \
+    && ./aws/install \
+    && rm -rf awscliv2.zip aws
 
-# Create directory for GitHub Copilot config
-RUN mkdir -p /home/node/.config/github-copilot
+# Install AWS Copilot CLI
+RUN curl -Lo /usr/local/bin/copilot https://github.com/aws/copilot-cli/releases/latest/download/copilot-linux \
+    && chmod +x /usr/local/bin/copilot
+
+# Create non-root user
+RUN useradd -m -s /bin/bash copilot-user
+
+# Switch to non-root user
+USER copilot-user
 
 # Set working directory
 WORKDIR /workspace
 
 # Default command shows help
-CMD ["github-copilot-cli", "--help"]
+CMD ["copilot", "--help"]

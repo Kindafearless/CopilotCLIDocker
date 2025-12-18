@@ -1,10 +1,10 @@
 #!/bin/bash
-# Setup script for GitHub Copilot CLI Docker container
+# Setup script for AWS Copilot CLI Docker container
 
 set -e
 
 echo "==================================="
-echo "GitHub Copilot CLI Docker Setup"
+echo "AWS Copilot CLI Docker Setup"
 echo "==================================="
 echo ""
 
@@ -32,42 +32,55 @@ echo ""
 echo "✓ Image built successfully"
 echo ""
 
-# Create the config volume if it doesn't exist
-echo "Creating config volume..."
-docker volume create copilot-config &> /dev/null || true
-echo "✓ Config volume ready"
+# Verify the installation
+echo "Verifying installation..."
+echo ""
+echo "AWS Copilot CLI version:"
+docker run --rm copilot-cli copilot --version
+echo ""
+echo "AWS CLI version:"
+docker run --rm copilot-cli aws --version
 echo ""
 
-# Authenticate
+# Check for AWS credentials
 echo "==================================="
-echo "GitHub Copilot Authentication"
+echo "AWS Credentials Check"
 echo "==================================="
-echo ""
-echo "You will now be prompted to authenticate with GitHub Copilot."
-echo "A device code will be displayed - enter it at the URL provided."
-echo ""
-read -p "Press Enter to continue with authentication..."
 echo ""
 
-docker run -it --rm \
-    -v copilot-config:/home/node/.config/github-copilot \
-    copilot-cli github-copilot-cli auth
+if [ -d "$HOME/.aws" ] && [ -f "$HOME/.aws/credentials" -o -f "$HOME/.aws/config" ]; then
+    echo "✓ AWS credentials directory found at ~/.aws"
+    echo ""
+    echo "Testing AWS credentials..."
+    if docker run --rm -v "$HOME/.aws:/home/copilot-user/.aws:ro" copilot-cli aws sts get-caller-identity 2>/dev/null; then
+        echo ""
+        echo "✓ AWS credentials are valid"
+    else
+        echo ""
+        echo "⚠ Could not verify AWS credentials. You may need to configure them."
+        echo "  Run: aws configure"
+    fi
+else
+    echo "⚠ No AWS credentials found at ~/.aws"
+    echo "  Please configure AWS CLI on your host machine first:"
+    echo "  Run: aws configure"
+fi
 
 echo ""
 echo "==================================="
 echo "Setup Complete!"
 echo "==================================="
 echo ""
-echo "Add the following aliases to your ~/.bashrc or ~/.zshrc:"
+echo "Add the following alias to your ~/.bashrc or ~/.zshrc:"
 echo ""
-echo "alias '??'='docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v \"\$(pwd)\":/workspace copilot-cli github-copilot-cli what-the-shell'"
-echo "alias 'git?'='docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v \"\$(pwd)\":/workspace copilot-cli github-copilot-cli git-assist'"
-echo "alias 'gh?'='docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v \"\$(pwd)\":/workspace copilot-cli github-copilot-cli gh-assist'"
+echo "alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v \"\$(pwd)\":/workspace copilot-cli copilot'"
 echo ""
 echo "Then reload your shell: source ~/.bashrc (or ~/.zshrc)"
 echo ""
 echo "Usage examples:"
-echo "  ?? list all files larger than 10MB"
-echo "  git? undo my last commit"
-echo "  gh? create a new issue"
+echo "  copilot --version       # Check version"
+echo "  copilot init            # Initialize a new application"
+echo "  copilot deploy          # Deploy your application"
+echo "  copilot app ls          # List applications"
+echo "  copilot svc logs        # View service logs"
 echo ""

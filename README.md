@@ -1,20 +1,24 @@
-# GitHub Copilot CLI Docker Container
+# AWS Copilot CLI Docker Container
 
-A Docker container for running [GitHub Copilot CLI](https://githubnext.com/projects/copilot-cli/) in an isolated, portable environment.
+A Docker container for running [AWS Copilot CLI](https://aws.github.io/copilot-cli/) in an isolated, portable environment.
 
 ## Overview
 
-GitHub Copilot CLI provides three main commands:
-- `??` - Translates natural language into shell commands
-- `git?` - Translates natural language into git commands
-- `gh?` - Translates natural language into GitHub CLI commands
+AWS Copilot CLI is the official command line tool for Amazon ECS and AWS Fargate. It helps you develop, release, and operate production-ready containerized applications on AWS.
 
-This Docker setup allows you to run Copilot CLI without installing Node.js or npm on your host machine.
+Key features:
+- Initialize and deploy containerized applications to ECS/Fargate
+- Manage application environments (test, staging, production)
+- Set up CI/CD pipelines
+- Configure load balancers, autoscaling, and more
+
+This Docker setup allows you to run Copilot CLI without installing it directly on your host machine.
 
 ## Prerequisites
 
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running
-- A GitHub account with [Copilot access](https://github.com/features/copilot)
+- AWS account with appropriate IAM permissions
+- AWS credentials (Access Key ID and Secret Access Key)
 
 ## Quick Start
 
@@ -29,20 +33,44 @@ cd CopilotCLIDocker
 docker build -t copilot-cli .
 ```
 
-### 2. Authenticate with GitHub Copilot
+### 2. Set Up AWS Credentials
 
-Before using the CLI, you need to authenticate:
+You have several options for providing AWS credentials to the container:
+
+#### Option A: Mount your existing AWS credentials (Recommended)
+
+If you already have AWS CLI configured on your host:
 
 ```bash
 docker run -it --rm \
-  -v copilot-config:/home/node/.config/github-copilot \
-  copilot-cli github-copilot-cli auth
+  -v ~/.aws:/home/copilot-user/.aws:ro \
+  -v "$(pwd)":/workspace \
+  copilot-cli copilot --help
 ```
 
-This will:
-1. Display a device code
-2. Open a URL where you enter the code
-3. Store your authentication token in a Docker volume for persistence
+#### Option B: Pass credentials as environment variables
+
+```bash
+docker run -it --rm \
+  -e AWS_ACCESS_KEY_ID=your_access_key \
+  -e AWS_SECRET_ACCESS_KEY=your_secret_key \
+  -e AWS_DEFAULT_REGION=us-east-1 \
+  -v "$(pwd)":/workspace \
+  copilot-cli copilot --help
+```
+
+#### Option C: Use AWS SSO (with mounted credentials)
+
+```bash
+# First, configure SSO on your host
+aws configure sso
+
+# Then mount the entire .aws directory
+docker run -it --rm \
+  -v ~/.aws:/home/copilot-user/.aws \
+  -v "$(pwd)":/workspace \
+  copilot-cli copilot --help
+```
 
 ### 3. Set Up Shell Aliases
 
@@ -51,13 +79,11 @@ Add these aliases to your shell configuration file (`~/.bashrc`, `~/.zshrc`, or 
 #### Bash / Zsh
 
 ```bash
-# GitHub Copilot CLI aliases
-alias '??'='docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v "$(pwd)":/workspace copilot-cli github-copilot-cli what-the-shell'
-alias 'git?'='docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v "$(pwd)":/workspace copilot-cli github-copilot-cli git-assist'
-alias 'gh?'='docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v "$(pwd)":/workspace copilot-cli github-copilot-cli gh-assist'
+# AWS Copilot CLI alias (using mounted credentials)
+alias copilot='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -v "$(pwd)":/workspace copilot-cli copilot'
 
-# Optional: Direct copilot-cli access
-alias copilot-cli='docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v "$(pwd)":/workspace copilot-cli github-copilot-cli'
+# Alternative: AWS Copilot CLI alias (using environment variables)
+# alias copilot='docker run -it --rm -e AWS_ACCESS_KEY_ID -e AWS_SECRET_ACCESS_KEY -e AWS_DEFAULT_REGION -v "$(pwd)":/workspace copilot-cli copilot'
 ```
 
 #### PowerShell (Windows)
@@ -65,21 +91,14 @@ alias copilot-cli='docker run -it --rm -v copilot-config:/home/node/.config/gith
 Add to your PowerShell profile (`$PROFILE`):
 
 ```powershell
-# GitHub Copilot CLI functions
-function Invoke-CopilotShell {
-    docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v "${PWD}:/workspace" copilot-cli github-copilot-cli what-the-shell $args
+# AWS Copilot CLI function (using mounted credentials)
+function Invoke-Copilot {
+    docker run -it --rm `
+        -v "$env:USERPROFILE\.aws:/home/copilot-user/.aws:ro" `
+        -v "${PWD}:/workspace" `
+        copilot-cli copilot $args
 }
-function Invoke-CopilotGit {
-    docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v "${PWD}:/workspace" copilot-cli github-copilot-cli git-assist $args
-}
-function Invoke-CopilotGH {
-    docker run -it --rm -v copilot-config:/home/node/.config/github-copilot -v "${PWD}:/workspace" copilot-cli github-copilot-cli gh-assist $args
-}
-
-# Set aliases
-Set-Alias -Name '??' -Value Invoke-CopilotShell
-Set-Alias -Name 'git?' -Value Invoke-CopilotGit
-Set-Alias -Name 'gh?' -Value Invoke-CopilotGH
+Set-Alias -Name copilot -Value Invoke-Copilot
 ```
 
 After adding the aliases, reload your shell configuration:
@@ -97,17 +116,73 @@ source ~/.zshrc
 
 ## Usage Examples
 
-Once aliases are set up, you can use natural language to generate commands:
+Once the alias is set up, use Copilot CLI commands as normal:
 
 ```bash
-# Shell commands
-?? list all files larger than 10MB
+# Check version
+copilot --version
 
-# Git commands
-git? undo my last commit but keep the changes
+# Initialize a new application
+copilot init
 
-# GitHub CLI commands
-gh? create a new issue with the title "Bug fix needed"
+# Deploy a service
+copilot deploy
+
+# List all applications
+copilot app ls
+
+# View application status
+copilot app show
+
+# Create a new environment
+copilot env init --name production
+
+# View logs
+copilot svc logs --name api
+
+# Delete an application
+copilot app delete
+```
+
+## Common Copilot Workflows
+
+### Deploy a New Application
+
+```bash
+# Navigate to your application directory
+cd my-app
+
+# Initialize (creates copilot/ directory)
+copilot init
+
+# Follow the prompts to:
+# - Name your application
+# - Choose workload type (Load Balanced Web Service, Backend Service, etc.)
+# - Select a Dockerfile
+# - Deploy to a test environment
+```
+
+### Add a New Environment
+
+```bash
+# Create a production environment
+copilot env init --name production
+
+# Deploy the environment
+copilot env deploy --name production
+
+# Deploy your service to production
+copilot deploy --env production
+```
+
+### Set Up a CI/CD Pipeline
+
+```bash
+# Initialize a pipeline
+copilot pipeline init
+
+# Deploy the pipeline to AWS
+copilot pipeline deploy
 ```
 
 ## Docker Desktop Management
@@ -117,21 +192,6 @@ gh? create a new issue with the title "Bug fix needed"
 1. Open Docker Desktop
 2. Go to the "Containers" tab
 3. You'll see `copilot-cli` containers when running commands
-
-### Managing the Config Volume
-
-The authentication token is stored in a Docker volume called `copilot-config`.
-
-```bash
-# List volumes
-docker volume ls
-
-# Inspect the volume
-docker volume inspect copilot-config
-
-# Remove the volume (will require re-authentication)
-docker volume rm copilot-config
-```
 
 ### Updating the Container
 
@@ -143,6 +203,13 @@ docker rmi copilot-cli
 
 # Rebuild with the latest version
 docker build --no-cache -t copilot-cli .
+```
+
+### Check Installed Versions
+
+```bash
+docker run --rm copilot-cli copilot --version
+docker run --rm copilot-cli aws --version
 ```
 
 ## Advanced Configuration
@@ -158,60 +225,85 @@ services:
     build: .
     image: copilot-cli
     volumes:
-      - copilot-config:/home/node/.config/github-copilot
+      - ~/.aws:/home/copilot-user/.aws:ro
       - .:/workspace
     stdin_open: true
     tty: true
-
-volumes:
-  copilot-config:
 ```
 
 Then use:
+
 ```bash
 # Build
 docker-compose build
 
 # Run
-docker-compose run --rm copilot github-copilot-cli what-the-shell "your query"
+docker-compose run --rm copilot copilot init
 ```
 
-### Custom Image Name
+### Using with AWS Profiles
 
-If you prefer a different image name:
+If you have multiple AWS profiles:
 
 ```bash
-docker build -t my-copilot-cli .
+docker run -it --rm \
+  -v ~/.aws:/home/copilot-user/.aws:ro \
+  -e AWS_PROFILE=my-profile \
+  -v "$(pwd)":/workspace \
+  copilot-cli copilot app ls
 ```
 
-Then update your aliases to use `my-copilot-cli` instead of `copilot-cli`.
+Or add to your alias:
+
+```bash
+alias copilot-prod='docker run -it --rm -v ~/.aws:/home/copilot-user/.aws:ro -e AWS_PROFILE=production -v "$(pwd)":/workspace copilot-cli copilot'
+```
 
 ## Troubleshooting
 
-### "Authentication required" error
+### "Unable to locate credentials" error
 
-Re-run the authentication command:
+Ensure your AWS credentials are properly mounted:
+
 ```bash
-docker run -it --rm \
-  -v copilot-config:/home/node/.config/github-copilot \
-  copilot-cli github-copilot-cli auth
+# Check if credentials file exists
+ls -la ~/.aws/
+
+# Verify credentials are valid on host first
+aws sts get-caller-identity
+```
+
+### "Permission denied" errors
+
+On Linux, you may need to run docker commands with `sudo` or add your user to the `docker` group:
+
+```bash
+sudo usermod -aG docker $USER
+# Log out and back in for changes to take effect
 ```
 
 ### Docker Desktop not running
 
 Ensure Docker Desktop is started. On Windows/Mac, look for the Docker icon in your system tray.
 
-### Permission denied errors
-
-On Linux, you may need to run docker commands with `sudo` or add your user to the `docker` group:
-```bash
-sudo usermod -aG docker $USER
-# Log out and back in for changes to take effect
-```
-
 ### Slow startup
 
 The first run downloads the image. Subsequent runs should be faster. Consider keeping Docker Desktop running in the background.
+
+### AWS SSO token expired
+
+Re-authenticate with SSO on your host:
+
+```bash
+aws sso login --profile your-profile
+```
+
+## Resources
+
+- [AWS Copilot CLI Documentation](https://aws.github.io/copilot-cli/)
+- [AWS Copilot CLI GitHub](https://github.com/aws/copilot-cli)
+- [AWS ECS Documentation](https://docs.aws.amazon.com/ecs/)
+- [AWS Fargate Documentation](https://docs.aws.amazon.com/fargate/)
 
 ## Contributing
 

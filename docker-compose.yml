@@ -5,11 +5,9 @@ services:
     build: .
     image: copilot-cli
     volumes:
-      - copilot-config:/home/node/.config/github-copilot
+      - ~/.aws:/home/copilot-user/.aws:ro
       - .:/workspace
     stdin_open: true
     tty: true
-
-volumes:
-  copilot-config:
-    name: copilot-config
+    environment:
+      - AWS_PROFILE=${AWS_PROFILE:-default}
